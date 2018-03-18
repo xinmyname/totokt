@@ -2,6 +2,8 @@ package name.xinmy.totokt
 
 import java.time.Instant
 import java.nio.ByteBuffer
+import java.security.MessageDigest
+import java.io.ByteArrayOutputStream
 
 class OneTimePasswordFactory(sharedSecret:ByteArray, ttlSeconds:Int = 30) { 
 
@@ -24,34 +26,56 @@ class OneTimePasswordFactory(sharedSecret:ByteArray, ttlSeconds:Int = 30) {
     } 
 
     private fun HOTP(key:ByteArray, counter:ByteArray): Int {
-        // TODO: write this
-        return 0
+        return Truncate(HMAC(key, counter)) and 0x7FFFFFFF
     }
 
     private fun XOR(dataIn:ByteArray, value:Byte): ByteArray {
-        // TODO: Write this
-        return dataIn
+
+        val dataOut = ByteArray(dataIn.size)
+
+        for (i in 0 until dataIn.size) {
+            dataOut[i] = (dataIn[i].toInt() xor value.toInt()).toByte()
+        }
+
+        return dataOut
     }
 
     private fun Concatenate(dataIn1:ByteArray, dataIn2:ByteArray): ByteArray {
-        // TODO: write this
-        return dataIn1
+
+        val outputStream = ByteArrayOutputStream();
+        outputStream.write(dataIn1);
+        outputStream.write(dataIn2);
+
+        return outputStream.toByteArray();
     }
 
     private fun SHA1(dataIn:ByteArray): ByteArray {
-        // TODO: write this
-        return dataIn
+        return MessageDigest.getInstance("SHA-1").digest(dataIn)
     }
 
     private fun HMAC(key:ByteArray, message:ByteArray): ByteArray {
-        // TODO: write this
-        return message
+        return Concatenate(SHA1(XOR(key, 0x5c)), Concatenate(XOR(key, 0x36), message));
     }
 
     private fun Truncate(dataIn:ByteArray): Int {
-        // TODO: write this
-        return 0
+
+        var dataOut = ByteArray(4)
+        val stride:Int = dataIn.size / 4
+        val remnant:Int = dataIn.size % 4
+
+        for (y in 0 until 4) {
+
+            val o:Int = y * stride
+
+            for (x in 0 until stride) {                
+                dataOut[y] = (dataOut[y].toInt() xor dataIn[o + x].toInt()).toByte()
+            }
+        }
+
+        for (x in 0 until remnant) {
+            dataOut[x] = (dataOut[x].toInt() xor dataIn[stride*4 + x].toInt()).toByte()
+        }
+
+        return ByteBuffer.wrap(dataOut).getInt()
     }
-
-
 } 
