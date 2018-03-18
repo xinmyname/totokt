@@ -1,7 +1,7 @@
 package name.xinmy.totokt
 
 import java.time.Instant
-import java.nio.ByteBuffer
+import java.nio.*
 import java.security.MessageDigest
 import java.io.ByteArrayOutputStream
 
@@ -20,12 +20,16 @@ class OneTimePasswordFactory(sharedSecret:ByteArray, ttlSeconds:Int = 30) {
         val un:Long = Instant.now().getEpochSecond()
         val tc = (un - to) / ti
 
+        val byteBuffer = ByteBuffer.allocate(java.lang.Long.BYTES)
+        byteBuffer.order(ByteOrder.LITTLE_ENDIAN)
+
         return OneTimePassword(
-            HOTP(_sharedSecret, ByteBuffer.allocate(java.lang.Long.BYTES).putLong(tc).array()) % 1000000, 
+            HOTP(_sharedSecret, byteBuffer.putLong(tc).array()) % 1000000, 
             (tc + 1) * ti)
     } 
 
     private fun HOTP(key:ByteArray, counter:ByteArray): Int {
+
         return Truncate(HMAC(key, counter)) and 0x7FFFFFFF
     }
 
@@ -42,11 +46,11 @@ class OneTimePasswordFactory(sharedSecret:ByteArray, ttlSeconds:Int = 30) {
 
     private fun Concatenate(dataIn1:ByteArray, dataIn2:ByteArray): ByteArray {
 
-        val outputStream = ByteArrayOutputStream();
-        outputStream.write(dataIn1);
-        outputStream.write(dataIn2);
+        val outputStream = ByteArrayOutputStream()
+        outputStream.write(dataIn1)
+        outputStream.write(dataIn2)
 
-        return outputStream.toByteArray();
+        return outputStream.toByteArray()
     }
 
     private fun SHA1(dataIn:ByteArray): ByteArray {
@@ -54,12 +58,12 @@ class OneTimePasswordFactory(sharedSecret:ByteArray, ttlSeconds:Int = 30) {
     }
 
     private fun HMAC(key:ByteArray, message:ByteArray): ByteArray {
-        return Concatenate(SHA1(XOR(key, 0x5c)), Concatenate(XOR(key, 0x36), message));
+        return Concatenate(SHA1(XOR(key, 0x5c)), Concatenate(XOR(key, 0x36), message))
     }
 
     private fun Truncate(dataIn:ByteArray): Int {
 
-        var dataOut = ByteArray(4)
+        val dataOut = ByteArray(4)
         val stride:Int = dataIn.size / 4
         val remnant:Int = dataIn.size % 4
 
@@ -76,6 +80,9 @@ class OneTimePasswordFactory(sharedSecret:ByteArray, ttlSeconds:Int = 30) {
             dataOut[x] = (dataOut[x].toInt() xor dataIn[stride*4 + x].toInt()).toByte()
         }
 
-        return ByteBuffer.wrap(dataOut).getInt()
+        val byteBuffer = ByteBuffer.wrap(dataOut)
+        byteBuffer.order(ByteOrder.LITTLE_ENDIAN)
+
+        return byteBuffer.getInt()
     }
 } 
